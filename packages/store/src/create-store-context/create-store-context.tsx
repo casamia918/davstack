@@ -32,31 +32,37 @@ export function createStoreContext<TCreator extends StoreApi<any, any> | AnyFn>(
 
 	const Context = React.createContext<StoreInstance | null>(null);
 
+	const useProvideStore = (props: StoreParams) => {
+		const storeInstanceRef = React.useRef<StoreInstance>(
+			createInstance(props)
+		);
+	
+		React.useEffect(() => {
+			const instance = storeInstanceRef.current;
+			if (!instance) return;
+	
+			const effectMethods = createEffectMethods(instance as any);
+	
+			effectMethods.subscribeToEffects();
+	
+			return () => {
+				effectMethods.unsubscribeFromEffects();
+			};
+		}, []);
+	
+		return storeInstanceRef.current;
+	};
+
 	const Provider = (
 		props: {
 			children: React.ReactNode;
 		} & StoreParams
 	) => {
 		const { children, ...restProps } = props;
-		const storeInstance = React.useRef<StoreInstance>(
-			createInstance(restProps as StoreParams)
-		);
-
-		React.useEffect(() => {
-			const instance = storeInstance.current;
-			if (!instance) return;
-
-			const effectMethods = createEffectMethods(instance as any);
-
-			effectMethods.subscribeToEffects();
-
-			return () => {
-				effectMethods.unsubscribeFromEffects();
-			};
-		}, []);
+		const storeInstance = useProvideStore(restProps as StoreParams);
 
 		return (
-			<Context.Provider value={storeInstance.current as StoreInstance}>
+			<Context.Provider value={storeInstance}>
 				{children}
 			</Context.Provider>
 		);
@@ -91,6 +97,7 @@ export function createStoreContext<TCreator extends StoreApi<any, any> | AnyFn>(
 
 	return {
 		Provider,
+		useProvideStore,
 		useStore,
 		withProvider,
 		Context,
